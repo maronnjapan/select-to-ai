@@ -2,18 +2,25 @@
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'openGenAi') {
-    handleOpenGenAi(message.prompt, message.launchGenAi).then(sendResponse);
+    handleOpenGenAi(message.prompt, message.launchGenAi, sender.tab.id).then(sendResponse);
     return true; // 非同期レスポンスを示す
+  }
+
+  if (message.action === 'aiResponse') {
+    // AIタブからの回答を元のタブに転送
+    handleAiResponse(message.response, message.originTabId, message.isComplete);
+    return false;
   }
 });
 
-async function handleOpenGenAi(prompt, launchGenAi) {
+async function handleOpenGenAi(prompt, launchGenAi, originTabId) {
   try {
-    // プロンプトをstorageに保存
+    // プロンプトをstorageに保存（送信元タブIDも保存）
     await chrome.storage.local.set({
       launchGenAi,
       pendingPrompt: prompt,
-      promptTimestamp: Date.now()
+      promptTimestamp: Date.now(),
+      originTabId: originTabId
     });
 
     const url = launchGenAi === 'chatgpt' ? 'https://chatgpt.com/new' : 'https://claude.ai/new';
@@ -46,5 +53,18 @@ async function handleOpenGenAi(prompt, launchGenAi) {
   } catch (error) {
     console.error('Reading Support: エラーが発生しました', error);
     return { success: false, error: error.message };
+  }
+}
+
+async function handleAiResponse(response, originTabId, isComplete) {
+  try {
+    // 元のタブに回答を送信
+    await chrome.tabs.sendMessage(originTabId, {
+      action: 'displayAiResponse',
+      response: response,
+      isComplete: isComplete
+    });
+  } catch (error) {
+    console.error('Reading Support: 回答の転送に失敗しました', error);
   }
 }

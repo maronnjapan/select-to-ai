@@ -148,7 +148,8 @@
   position: fixed !important;
   display: flex !important;
   flex-direction: column !important;
-  width: 400px !important;
+  width: 450px !important;
+  max-height: 600px !important;
   background: #ffffff !important;
   border: 1px solid #e0e0e0 !important;
   border-radius: 12px !important;
@@ -189,17 +190,99 @@
   color: #e53935 !important;
 }
 
+/* チャットコンテナ */
+.rs-chat-container {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  max-height: 350px !important;
+}
+
+.rs-chat-messages {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+.rs-chat-message {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: flex-start !important;
+}
+
+.rs-chat-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  flex-shrink: 0 !important;
+}
+
+.rs-chat-message-user .rs-chat-avatar {
+  background: #d97706 !important;
+  color: #ffffff !important;
+}
+
+.rs-chat-message-ai .rs-chat-avatar {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.rs-chat-content {
+  flex: 1 !important;
+  padding: 10px 14px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+}
+
+.rs-chat-message-user .rs-chat-content {
+  background: #d97706 !important;
+  color: #ffffff !important;
+}
+
+.rs-chat-message-ai .rs-chat-content {
+  background: #f0f0f0 !important;
+  color: #333 !important;
+}
+
+.rs-loading-dots {
+  display: inline-block !important;
+  animation: rs-loading-pulse 1.5s ease-in-out infinite !important;
+}
+
+@keyframes rs-loading-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* チャット入力コンテナ */
+.rs-chat-input-container {
+  display: flex !important;
+  flex-direction: column !important;
+  border-top: 1px solid #e0e0e0 !important;
+}
+
 /* テキストエリア */
 .rs-textarea-input {
-  flex: 1 !important;
-  min-height: 180px !important;
-  max-height: 400px !important;
-  padding: 16px !important;
+  min-height: 80px !important;
+  max-height: 150px !important;
+  padding: 12px 16px !important;
   border: none !important;
   font-size: 14px !important;
   font-family: inherit !important;
   line-height: 1.6 !important;
-  resize: vertical !important;
+  resize: none !important;
   outline: none !important;
   background: #ffffff !important;
   color: #333 !important;
@@ -265,6 +348,19 @@
 
   .rs-textarea-close {
     color: #aaa !important;
+  }
+
+  .rs-chat-container {
+    background: #2d2d2d !important;
+  }
+
+  .rs-chat-message-ai .rs-chat-content {
+    background: #404040 !important;
+    color: #ffffff !important;
+  }
+
+  .rs-chat-input-container {
+    border-color: #404040 !important;
   }
 
   .rs-textarea-input {

@@ -106,10 +106,104 @@
     }, 300);
   }
 
+  // AIの回答エリアを探す
+  function findResponseElement() {
+    // Claude.aiの回答エリアセレクタ（複数パターンを試す）
+    const selectors = [
+      'div[data-testid="conversation-turn"]',
+      'div[data-test="conversation-turn"]',
+      'div.font-claude-message',
+      'div[class*="message"]'
+    ];
+
+    for (const selector of selectors) {
+      const elements = document.querySelectorAll(selector);
+      if (elements.length > 0) {
+        // 最後の要素（最新の回答）を返す
+        return elements[elements.length - 1];
+      }
+    }
+
+    // フォールバック: 特定の構造を探す
+    const allDivs = document.querySelectorAll('div');
+    for (let i = allDivs.length - 1; i >= 0; i--) {
+      const div = allDivs[i];
+      if (div.textContent && div.textContent.length > 50) {
+        // ある程度の長さがあるテキストを含むdivを探す
+        return div;
+      }
+    }
+
+    return null;
+  }
+
+  // 回答を監視して送信元タブに送る
+  function monitorResponse(originTabId) {
+    let lastSentText = '';
+    let observer = null;
+
+    const checkAndSendResponse = () => {
+      // 最新の回答エリアを取得
+      const responseElements = document.querySelectorAll('div[data-testid="conversation-turn"]');
+      if (responseElements.length === 0) return;
+
+      // 最後の回答（最新のAIの回答）を取得
+      const lastResponse = responseElements[responseElements.length - 1];
+      const responseText = lastResponse.textContent.trim();
+
+      // 前回送信したテキストと異なる場合のみ送信（ストリーミング対応）
+      if (responseText && responseText !== lastSentText && responseText.length > 0) {
+        lastSentText = responseText;
+
+        // background.jsに回答を送信
+        chrome.runtime.sendMessage({
+          action: 'aiResponse',
+          response: responseText,
+          originTabId: originTabId,
+          isComplete: false // ストリーミング中
+        });
+      }
+    };
+
+    // DOMの変更を監視
+    const targetNode = document.body;
+    observer = new MutationObserver((mutations) => {
+      // 回答エリアに変更があったかチェック
+      checkAndSendResponse();
+    });
+
+    observer.observe(targetNode, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+
+    // 定期的にもチェック（念のため）
+    const intervalId = setInterval(checkAndSendResponse, 1000);
+
+    // 30秒後に監視を停止（タイムアウト）
+    setTimeout(() => {
+      if (observer) {
+        observer.disconnect();
+      }
+      clearInterval(intervalId);
+
+      // 最終的な回答を送信（完了フラグを立てる）
+      if (lastSentText) {
+        chrome.runtime.sendMessage({
+          action: 'aiResponse',
+          response: lastSentText,
+          originTabId: originTabId,
+          isComplete: true
+        });
+      }
+    }, 30000);
+  }
+
   // メイン処理
   async function processPrompt() {
     try {
-      const result = await chrome.storage.local.get(['pendingPrompt', 'promptTimestamp']);
+      const result = await chrome.storage.local.get(['pendingPrompt', 'promptTimestamp', 'originTabId']);
 
       if (!result.pendingPrompt || !result.promptTimestamp) {
         return;
@@ -117,11 +211,12 @@
 
       if (!isPromptValid(result.promptTimestamp)) {
         // 期限切れのプロンプトを削除
-        await chrome.storage.local.remove(['pendingPrompt', 'promptTimestamp']);
+        await chrome.storage.local.remove(['pendingPrompt', 'promptTimestamp', 'originTabId']);
         return;
       }
 
       const prompt = result.pendingPrompt;
+      const originTabId = result.originTabId;
 
       // 入力欄が見つかるまで待機
       let waitTime = 0;
@@ -137,13 +232,20 @@
           inputText(inputElement, prompt);
 
           // 使用済みプロンプトを削除
-          await chrome.storage.local.remove(['pendingPrompt', 'promptTimestamp']);
+          await chrome.storage.local.remove(['pendingPrompt', 'promptTimestamp', 'originTabId']);
 
           // 送信ボタンが有効になるまで少し待つ
           setTimeout(() => {
             const submitButton = findSubmitButton();
             if (submitButton) {
               submitMessage(submitButton);
+
+              // 回答の監視を開始
+              if (originTabId) {
+                setTimeout(() => {
+                  monitorResponse(originTabId);
+                }, 2000); // 送信後2秒待ってから監視開始
+              }
             }
           }, 500);
         }
