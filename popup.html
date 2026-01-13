@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>英文読解サポート</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 400px;
+      max-height: 500px;
+      overflow-y: auto;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      color: #333;
+    }
+
+    h1 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .section {
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .setting-label {
+      font-size: 13px;
+    }
+
+    .setting-description {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    /* トグルスイッチ */
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 24px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    .toggle input:checked+.toggle-slider {
+      background-color: #d97706;
+    }
+
+    .toggle input:checked+.toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    /* プロンプトカード */
+    .prompt-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .prompt-card {
+      background: #f9f9f9;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .prompt-card.active {
+      border-color: #d97706;
+      background: #fffbf5;
+    }
+
+    .prompt-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .prompt-name-input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .prompt-name-input:focus {
+      outline: 2px solid #d97706;
+      border-color: transparent;
+    }
+
+    .prompt-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: #d97706;
+      color: white;
+      border-radius: 4px;
+    }
+
+    .prompt-delete-btn {
+      padding: 4px 8px;
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .prompt-delete-btn:hover {
+      color: #e53935;
+    }
+
+    .prompt-shortcut-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .prompt-shortcut-label {
+      font-size: 12px;
+      color: #666;
+      width: 80px;
+    }
+
+    .shortcut-display {
+      flex: 1;
+      padding: 6px 10px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: monospace;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .shortcut-display:focus {
+      outline: 2px solid #d97706;
+      background: #fff;
+    }
+
+    .shortcut-display.recording {
+      background: #fff3e0;
+      border-color: #d97706;
+    }
+
+    .prompt-template {
+      width: 100%;
+      height: 80px;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: inherit;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    .prompt-template:focus {
+      outline: 2px solid #d97706;
+      border-color: transparent;
+    }
+
+    .prompt-hint {
+      font-size: 10px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .prompt-hint code {
+      background: #e8e8e8;
+      padding: 1px 3px;
+      border-radius: 2px;
+      font-size: 9px;
+    }
+
+    /* ボタン */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary {
+      background: #d97706;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #b45309;
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-add {
+      width: 100%;
+      padding: 10px;
+      background: #f5f5f5;
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      color: #666;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .btn-add:hover {
+      background: #eee;
+      border-color: #ccc;
+    }
+
+    /* 保存通知 */
+    .save-notice {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 100;
+    }
+
+    .save-notice.show {
+      opacity: 1;
+    }
+
+    .footer {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 12px;
+      color: #999;
+      text-align: center;
+    }
+
+    .footer a {
+      color: #d97706;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>英文読解サポート</h1>
+
+  <div class="section">
+    <div class="section-title">設定</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">選択時にポップアップを表示</div>
+        <div class="setting-description">テキスト選択時にボタンを表示する</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="showPopup" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">起動するAI</div>
+    <div class="setting-row">
+      <select name="launchGenAi" id="launchGenAi">
+        <option value="chatgpt">ChatGPT</option>
+        <option value="claude">Claude</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">フローティングテキストエリア</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">テキストエリアを有効にする</div>
+        <div class="setting-description">ショートカットで編集可能なテキストエリアを表示</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="floatingTextAreaEnabled" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="prompt-shortcut-row" style="padding: 10px 0;">
+      <span class="prompt-shortcut-label">ショートカット</span>
+      <div class="shortcut-display" id="floatingTextAreaShortcut" tabindex="0">Ctrl+Shift+E</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">プロンプト設定</div>
+    <div class="prompt-list" id="promptList">
+      <!-- プロンプトカードがここに動的に追加される -->
+    </div>
+    <button class="btn-add" id="addPromptBtn">+ プロンプトを追加</button>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="saveSettings">設定を保存</button>
+    </div>
+  </div>
+
+  <div class="save-notice" id="saveNotice">設定を保存しました</div>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>
