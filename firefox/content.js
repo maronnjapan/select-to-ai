@@ -319,22 +319,28 @@
 
   // フローティングテキストエリアの位置調整
   function positionFloatingTextArea(container, x, y) {
-    const width = 400;
-    const height = 300;
     const padding = 20;
+    const width = container.offsetWidth || 400;
+    const height = container.offsetHeight || 300;
 
     let posX = x;
     let posY = y + 10;
 
-    // 画面端での調整
-    if (posX + width > window.innerWidth - padding) {
-      posX = window.innerWidth - width - padding;
+    const maxX = Math.max(padding, window.innerWidth - padding - width);
+    if (posX > maxX) {
+      posX = maxX;
     }
     if (posX < padding) {
       posX = padding;
     }
+
     if (posY + height > window.innerHeight - padding) {
       posY = y - height - 10;
+    }
+
+    const maxY = Math.max(padding, window.innerHeight - padding - height);
+    if (posY > maxY) {
+      posY = maxY;
     }
     if (posY < padding) {
       posY = padding;
@@ -511,7 +517,7 @@
           // 選択範囲の位置を取得
           const range = selection.getRangeAt(0);
           const rect = range.getBoundingClientRect();
-          createFloatingTextArea(selectedText, rect.left + window.scrollX, rect.bottom + window.scrollY);
+          createFloatingTextArea(selectedText, rect.left, rect.bottom);
           hideFloatingButton();
         }
         return;

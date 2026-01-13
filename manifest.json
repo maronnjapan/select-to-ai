@@ -38,6 +38,15 @@
         "https://chatgpt.com/*"
       ],
       "js": [
+        "shared/constants.js",
+        "shared/utils.js",
+        "modules/settings.js",
+        "modules/text-selection.js",
+        "modules/prompt-generator.js",
+        "modules/ui-notification.js",
+        "modules/ui-floating-button.js",
+        "modules/ui-floating-textarea.js",
+        "modules/ai-service.js",
         "content.js"
       ],
       "css": [
