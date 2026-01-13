@@ -106,20 +106,29 @@
     // フローティングテキストエリアのショートカットをチェック
     if (RS.settings.floatingTextAreaEnabled) {
       if (RS.matchesShortcut(e, RS.settings.floatingTextAreaShortcut)) {
+        e.preventDefault();
         var selection = window.getSelection();
         var selectedText = selection.toString().trim();
-        if (selectedText) {
-          e.preventDefault();
-          // 選択範囲の位置を取得
+        var x, y;
+
+        if (selectedText && selection.rangeCount > 0) {
+          // 選択テキストがある場合は選択範囲の位置に表示
           var range = selection.getRangeAt(0);
           var rect = range.getBoundingClientRect();
-          RS.FloatingTextArea.create(
-            selectedText,
-            rect.left,
-            rect.bottom
-          );
-          RS.FloatingButton.hide();
+          x = rect.left;
+          y = rect.bottom;
+        } else {
+          // 選択テキストがない場合は画面中央に表示
+          x = window.innerWidth / 2 - 200; // テキストエリアの幅の半分（400px / 2）
+          y = window.innerHeight / 2 - 150; // テキストエリアの高さの半分（300px / 2）
         }
+
+        RS.FloatingTextArea.create(
+          selectedText || '', // 選択テキストがない場合は空文字列
+          x,
+          y
+        );
+        RS.FloatingButton.hide();
         return;
       }
     }
