@@ -2,7 +2,13 @@
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'openGenAi') {
-    handleOpenGenAi(message.prompt, message.launchGenAi, sender.tab.id).then(sendResponse);
+    handleOpenGenAi(
+      message.prompt,
+      message.launchGenAi,
+      sender.tab.id,
+      message.reuseExistingChat,
+      message.activateTab
+    ).then(sendResponse);
     return true; // 非同期レスポンスを示す
   }
 
@@ -13,8 +19,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-async function handleOpenGenAi(prompt, launchGenAi, originTabId) {
+async function handleOpenGenAi(prompt, launchGenAi, originTabId, reuseExistingChat, activateTab) {
   try {
+    // デフォルト値を設定
+    reuseExistingChat = reuseExistingChat || false;
+    activateTab = activateTab !== false; // デフォルトはtrue
+
     // プロンプトをstorageに保存（送信元タブIDも保存）
     await chrome.storage.local.set({
       launchGenAi,
@@ -33,11 +43,17 @@ async function handleOpenGenAi(prompt, launchGenAi, originTabId) {
       // 既存タブを再利用
       const genAiTab = tabs[0];
 
-      // タブをアクティブにしてウィンドウをフォーカス
-      await chrome.tabs.update(genAiTab.id, { active: true });
-      await chrome.windows.update(genAiTab.windowId, { focused: true });
-      // 新しい会話ページに移動（既存の会話を維持しつつ新規会話を開始）
-      await chrome.tabs.update(genAiTab.id, { url });
+      // reuseExistingChat が true の場合、既存のチャットに続けて送信（URLを変更しない）
+      // false の場合、新しいチャットを開始（/new に移動）
+      if (!reuseExistingChat) {
+        await chrome.tabs.update(genAiTab.id, { url });
+      }
+
+      // activateTab が true の場合のみ、タブをアクティブにする
+      if (activateTab) {
+        await chrome.tabs.update(genAiTab.id, { active: true });
+        await chrome.windows.update(genAiTab.windowId, { focused: true });
+      }
 
       return { success: true, reused: true };
     } else {

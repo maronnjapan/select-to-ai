@@ -185,8 +185,11 @@
       // ローディング表示
       this._addLoadingMessage();
 
-      // AIに送信
-      RS.openGenAi(text, RS.settings.launchGenAi);
+      // AIに送信（既存チャットを再利用し、タブをアクティブにしない）
+      RS.openGenAi(text, RS.settings.launchGenAi, {
+        reuseExistingChat: true,
+        activateTab: false
+      });
       RS.showNotification('AIに送信しています...');
     },
 
