@@ -258,28 +258,43 @@
      * @public
      */
     displayResponse: function(response, isComplete) {
-      if (!floatingTextArea) return;
+      console.log('Reading Support [FloatingTextArea]: displayResponse呼び出し', 'floatingTextArea:', !!floatingTextArea, '回答長:', response.length);
+
+      if (!floatingTextArea) {
+        console.log('Reading Support [FloatingTextArea]: floatingTextAreaが存在しません');
+        return;
+      }
 
       var messagesContainer = floatingTextArea.querySelector('.rs-chat-messages');
-      if (!messagesContainer) return;
+      if (!messagesContainer) {
+        console.log('Reading Support [FloatingTextArea]: messagesContainerが見つかりません');
+        return;
+      }
+
+      console.log('Reading Support [FloatingTextArea]: メッセージコンテナ発見');
 
       // ローディングメッセージを削除
       var loadingMsg = document.getElementById('rs-chat-loading');
       if (loadingMsg) {
+        console.log('Reading Support [FloatingTextArea]: ローディングメッセージを削除');
         loadingMsg.remove();
       }
 
       // 既存のAI回答を更新または新規作成
       var lastMessage = messagesContainer.querySelector('.rs-chat-message-ai:last-child');
+      console.log('Reading Support [FloatingTextArea]: 最後のAIメッセージ:', !!lastMessage);
 
       if (lastMessage && !lastMessage.classList.contains('rs-chat-loading')) {
         // 既存のメッセージを更新（ストリーミング）
+        console.log('Reading Support [FloatingTextArea]: 既存メッセージを更新');
         var content = lastMessage.querySelector('.rs-chat-content');
         if (content) {
           content.textContent = response;
+          console.log('Reading Support [FloatingTextArea]: コンテンツを更新しました');
         }
       } else {
         // 新しいメッセージを追加
+        console.log('Reading Support [FloatingTextArea]: 新しいメッセージを追加');
         this._addMessage(response, 'ai');
       }
 
@@ -287,6 +302,7 @@
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
       if (isComplete) {
+        console.log('Reading Support [FloatingTextArea]: 回答完了');
         RS.showNotification('AIからの回答を受信しました');
       }
     },

@@ -194,8 +194,10 @@
 
   chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
     if (message.action === 'displayAiResponse') {
+      console.log('Reading Support [content]: AI回答を受信', '回答長:', message.response.length, 'isComplete:', message.isComplete);
       // AIの回答を表示
       RS.FloatingTextArea.displayResponse(message.response, message.isComplete);
+      console.log('Reading Support [content]: displayResponse呼び出し完了');
       sendResponse({ success: true });
     }
   });

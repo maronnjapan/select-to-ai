@@ -141,19 +141,57 @@
   function monitorResponse(originTabId) {
     let lastSentText = '';
     let observer = null;
+    let messageCount = 0;
 
     const checkAndSendResponse = () => {
-      // 最新の回答エリアを取得
-      const responseElements = document.querySelectorAll('div[data-testid="conversation-turn"]');
-      if (responseElements.length === 0) return;
+      // 複数のセレクタを試す
+      const selectors = [
+        'div[data-testid="conversation-turn"]',
+        'div.font-claude-message',
+        'div[class*="Message"]',
+        'div[class*="message"]'
+      ];
+
+      let responseElements = null;
+      for (const selector of selectors) {
+        const elements = document.querySelectorAll(selector);
+        if (elements.length > 0) {
+          responseElements = elements;
+          console.log('Reading Support: セレクタが見つかりました:', selector, '要素数:', elements.length);
+          break;
+        }
+      }
+
+      // セレクタで見つからない場合は、別の方法を試す
+      if (!responseElements || responseElements.length === 0) {
+        // すべてのdivを取得して、長いテキストを持つものを探す
+        const allDivs = Array.from(document.querySelectorAll('div'));
+        const potentialResponses = allDivs.filter(div => {
+          const text = div.textContent.trim();
+          return text.length > 100 && !div.querySelector('textarea') && !div.querySelector('input');
+        });
+
+        if (potentialResponses.length > 0) {
+          console.log('Reading Support: フォールバックで要素を検出:', potentialResponses.length);
+          responseElements = potentialResponses;
+        } else {
+          console.log('Reading Support: 回答要素が見つかりません');
+          return;
+        }
+      }
 
       // 最後の回答（最新のAIの回答）を取得
       const lastResponse = responseElements[responseElements.length - 1];
       const responseText = lastResponse.textContent.trim();
 
+      console.log('Reading Support: 回答チェック:', responseText.substring(0, 50) + '...', '長さ:', responseText.length);
+
       // 前回送信したテキストと異なる場合のみ送信（ストリーミング対応）
       if (responseText && responseText !== lastSentText && responseText.length > 0) {
         lastSentText = responseText;
+        messageCount++;
+
+        console.log('Reading Support: 回答を送信 #' + messageCount, 'originTabId:', originTabId);
 
         // background.jsに回答を送信
         chrome.runtime.sendMessage({
@@ -164,6 +202,8 @@
         });
       }
     };
+
+    console.log('Reading Support: 回答の監視を開始 originTabId:', originTabId);
 
     // DOMの変更を監視
     const targetNode = document.body;
@@ -178,11 +218,16 @@
       characterData: true
     });
 
+    // すぐに一度チェック
+    checkAndSendResponse();
+
     // 定期的にもチェック（念のため）
     const intervalId = setInterval(checkAndSendResponse, 1000);
 
-    // 30秒後に監視を停止（タイムアウト）
+    // 60秒後に監視を停止（タイムアウト）
     setTimeout(() => {
+      console.log('Reading Support: 監視タイムアウト メッセージ送信数:', messageCount);
+
       if (observer) {
         observer.disconnect();
       }
@@ -190,6 +235,7 @@
 
       // 最終的な回答を送信（完了フラグを立てる）
       if (lastSentText) {
+        console.log('Reading Support: 最終回答を送信');
         chrome.runtime.sendMessage({
           action: 'aiResponse',
           response: lastSentText,
@@ -197,7 +243,7 @@
           isComplete: true
         });
       }
-    }, 30000);
+    }, 60000);
   }
 
   // メイン処理

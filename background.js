@@ -8,6 +8,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'aiResponse') {
     // AIタブからの回答を元のタブに転送
+    console.log('Reading Support [background]: AI回答を受信', 'originTabId:', message.originTabId, '回答長:', message.response.length, 'isComplete:', message.isComplete);
     handleAiResponse(message.response, message.originTabId, message.isComplete);
     return false;
   }
@@ -58,13 +59,15 @@ async function handleOpenGenAi(prompt, launchGenAi, originTabId) {
 
 async function handleAiResponse(response, originTabId, isComplete) {
   try {
+    console.log('Reading Support [background]: 元のタブに回答を転送中...', 'tabId:', originTabId);
     // 元のタブに回答を送信
     await chrome.tabs.sendMessage(originTabId, {
       action: 'displayAiResponse',
       response: response,
       isComplete: isComplete
     });
+    console.log('Reading Support [background]: 回答の転送成功');
   } catch (error) {
-    console.error('Reading Support: 回答の転送に失敗しました', error);
+    console.error('Reading Support [background]: 回答の転送に失敗しました', error);
   }
 }
