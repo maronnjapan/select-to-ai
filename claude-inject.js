@@ -195,26 +195,64 @@
     let lastSentText = '';
     let observer = null;
 
-    const checkAndSendResponse = () => {
-      // 現在のURLでどちらのサービスか判定
-      const isChatGPT = window.location.hostname.includes('chatgpt.com');
-      const isClaude = window.location.hostname.includes('claude.ai');
+    // 監視開始前に現在のメッセージ数を記録
+    const isChatGPT = window.location.hostname.includes('chatgpt.com');
+    const isClaude = window.location.hostname.includes('claude.ai');
 
+    let initialMessageCount = 0;
+    if (isChatGPT) {
+      initialMessageCount = document.querySelectorAll('div[data-message-author-role="assistant"]').length;
+    } else if (isClaude) {
+      // Claudeの場合、AI回答のみをカウント（ユーザーメッセージを除外）
+      const allMessages = document.querySelectorAll('div[class*="font-"]');
+      initialMessageCount = Array.from(allMessages).filter(el => {
+        // AI回答の特徴で判定（具体的なクラスやデータ属性で判別）
+        return el.textContent.length > 100; // 仮の判定：長いテキストはAI回答の可能性が高い
+      }).length;
+    }
+
+    const checkAndSendResponse = () => {
       let responseText = '';
 
       if (isChatGPT) {
         // ChatGPT用のセレクタ
         const responseElements = document.querySelectorAll('div[data-message-author-role="assistant"]');
-        if (responseElements.length > 0) {
+        // 新しいメッセージが追加されているかチェック
+        if (responseElements.length > initialMessageCount) {
           const lastResponse = responseElements[responseElements.length - 1];
           responseText = lastResponse.textContent.trim();
         }
       } else if (isClaude) {
-        // Claude用のセレクタ
-        const responseElements = document.querySelectorAll('div[data-testid="conversation-turn"]');
-        if (responseElements.length > 0) {
+        // Claude用のセレクタ - 複数のパターンを試す
+        let responseElements = [];
+
+        // パターン1: font-claude-message クラス
+        responseElements = document.querySelectorAll('div.font-claude-message');
+
+        // パターン2: data-testid
+        if (responseElements.length === 0) {
+          responseElements = document.querySelectorAll('div[data-testid*="message"]');
+        }
+
+        // パターン3: 一般的なメッセージコンテナ
+        if (responseElements.length === 0) {
+          // AI回答っぽい要素を探す（長いテキストを含む div）
+          const allDivs = document.querySelectorAll('div[class*="font-"]');
+          responseElements = Array.from(allDivs).filter(el => {
+            return el.textContent.length > 50 && !el.querySelector('textarea');
+          });
+        }
+
+        // 新しいメッセージが追加されているかチェック
+        if (responseElements.length > initialMessageCount) {
           const lastResponse = responseElements[responseElements.length - 1];
           responseText = lastResponse.textContent.trim();
+
+          // ユーザーメッセージを除外（入力したプロンプトと同じでないことを確認）
+          // ※プロンプトの内容は取得できないため、長さで判定
+          if (responseText.length < 50) {
+            responseText = '';
+          }
         }
       }
 
@@ -311,7 +349,7 @@
               if (originTabId) {
                 setTimeout(() => {
                   monitorResponse(originTabId);
-                }, 2000); // 送信後2秒待ってから監視開始
+                }, 3000); // 送信後3秒待ってから監視開始（バックグラウンドタブでも動作するように）
               }
             }
           }, 500);
@@ -390,7 +428,7 @@
         if (originTabId) {
           setTimeout(() => {
             monitorResponse(originTabId);
-          }, 2000); // 送信後2秒待ってから監視開始
+          }, 3000); // 送信後3秒待ってから監視開始（バックグラウンドタブでも動作するように）
         }
       } else {
         console.log('Reading Support: 送信ボタンが見つかりません');
