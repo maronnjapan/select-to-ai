@@ -194,89 +194,90 @@
   function monitorResponse(originTabId) {
     let lastSentText = '';
     let observer = null;
+    let initialMessageCount = 0;
+    let detectedPatternIndex = -1;
 
-    // 監視開始前に現在のメッセージ数を記録
+    // 現在のURLでどちらのサービスか判定
     const isChatGPT = window.location.hostname.includes('chatgpt.com');
     const isClaude = window.location.hostname.includes('claude.ai');
 
-    let initialMessageCount = 0;
-    if (isChatGPT) {
-      initialMessageCount = document.querySelectorAll('div[data-message-author-role="assistant"]').length;
-    } else if (isClaude) {
-      // Claudeの場合、複数のセレクタパターンで試す
-      const patterns = [
-        'div.font-claude-message',
-        'div[data-testid*="message"]',
-        'div[class*="font-"][class*="message"]'
-      ];
+    // 監視開始時に現在のメッセージ数を記録
+    // この関数は送信後3秒後に呼ばれるが、その時点では既にAI回答が始まっている可能性がある
+    // なので、1回だけ初回のメッセージをキャプチャするために、遅延初期化する
+    let isFirstCheck = true;
 
-      for (const pattern of patterns) {
-        const elements = document.querySelectorAll(pattern);
-        if (elements.length > 0) {
-          // ユーザーメッセージを含む可能性があるので、偶数番目のみカウント（AI回答は通常偶数番目）
-          initialMessageCount = Math.floor(elements.length / 2);
-          break;
-        }
-      }
-    }
+    const patterns = isClaude ? [
+      'div.font-claude-message',
+      'div[data-testid*="message"]',
+      'div[class*="font-"][class*="message"]'
+    ] : [];
 
     const checkAndSendResponse = () => {
       let responseText = '';
-      let newMessageElement = null;
 
       if (isChatGPT) {
         // ChatGPT用のセレクタ
         const responseElements = document.querySelectorAll('div[data-message-author-role="assistant"]');
+
+        // 初回チェック時に現在のメッセージ数を記録
+        if (isFirstCheck) {
+          initialMessageCount = responseElements.length;
+          isFirstCheck = false;
+          return; // 初回は記録のみ
+        }
+
         // 新しいメッセージが追加されているかチェック
         if (responseElements.length > initialMessageCount) {
-          newMessageElement = responseElements[responseElements.length - 1];
+          const newMessageElement = responseElements[responseElements.length - 1];
           responseText = newMessageElement.textContent.trim();
         }
       } else if (isClaude) {
         // Claude用のセレクタ - 複数のパターンを試す
-        const patterns = [
-          'div.font-claude-message',
-          'div[data-testid*="message"]',
-          'div[class*="font-"][class*="message"]'
-        ];
-
-        for (const pattern of patterns) {
+        for (let patternIdx = 0; patternIdx < patterns.length; patternIdx++) {
+          const pattern = patterns[patternIdx];
           const elements = document.querySelectorAll(pattern);
-          if (elements.length > initialMessageCount * 2) {
-            // メッセージは交互に表示される（ユーザー、AI、ユーザー、AI...）
-            // 最後の要素がAI回答の可能性が高い
-            newMessageElement = elements[elements.length - 1];
 
-            // 入力欄を含む要素はユーザーメッセージなので除外
-            if (newMessageElement.querySelector('textarea') || newMessageElement.querySelector('input')) {
-              continue;
-            }
-
-            responseText = newMessageElement.textContent.trim();
-
-            // 見つかったらループを抜ける
-            if (responseText) {
-              break;
-            }
+          // パターンが見つかった場合、そのパターンを記憶
+          if (elements.length > 0 && detectedPatternIndex === -1) {
+            detectedPatternIndex = patternIdx;
           }
-        }
 
-        // どのパターンでも見つからない場合、最後の手段として新しく追加された要素を探す
-        if (!responseText) {
-          const allDivs = Array.from(document.querySelectorAll('div'));
-          // 直近で追加された大きな要素を探す（textarea/inputを含まない）
-          for (let i = allDivs.length - 1; i >= 0; i--) {
-            const div = allDivs[i];
-            if (!div.querySelector('textarea') &&
-                !div.querySelector('input') &&
-                div.textContent.trim() &&
-                !div.contains(document.querySelector('textarea'))) {
-              const text = div.textContent.trim();
-              // 明らかに短すぎるもの（ボタンラベルなど）は除外
-              if (text && text.length > 10) {
+          // 検出済みのパターン以外はスキップ（一貫性のため）
+          if (detectedPatternIndex !== -1 && patternIdx !== detectedPatternIndex) {
+            continue;
+          }
+
+          // 初回チェック時に現在のメッセージ数を記録
+          if (isFirstCheck) {
+            initialMessageCount = elements.length;
+            isFirstCheck = false;
+            return; // 初回は記録のみ
+          }
+
+          // 新しいメッセージが追加されているかチェック
+          if (elements.length > initialMessageCount) {
+            // 新しく追加されたメッセージを順番にチェック
+            for (let i = initialMessageCount; i < elements.length; i++) {
+              const element = elements[i];
+
+              // 入力欄を含む要素はユーザーメッセージなので除外
+              if (element.querySelector('textarea') || element.querySelector('input')) {
+                continue;
+              }
+
+              // メッセージは通常交互に表示される（ユーザー、AI、ユーザー、AI...）
+              // 初回のユーザーメッセージはインデックス0、AIはインデックス1...
+              // ただし、iが奇数の場合がAI回答の可能性が高い
+              // しかし、これは仮定なので、入力欄がないことで判定する
+              const text = element.textContent.trim();
+              if (text) {
                 responseText = text;
                 break;
               }
+            }
+
+            if (responseText) {
+              break;
             }
           }
         }
