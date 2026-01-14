@@ -104,30 +104,25 @@
     }
 
     // フローティングテキストエリアのショートカットをチェック
+    // フローティングテキストエリアの代わりに、AIポップアップウィンドウを開く
     if (RS.settings.floatingTextAreaEnabled) {
       if (RS.matchesShortcut(e, RS.settings.floatingTextAreaShortcut)) {
         e.preventDefault();
         var selection = window.getSelection();
         var selectedText = selection.toString().trim();
-        var x, y;
 
-        if (selectedText && selection.rangeCount > 0) {
-          // 選択テキストがある場合は選択範囲の位置に表示
-          var range = selection.getRangeAt(0);
-          var rect = range.getBoundingClientRect();
-          x = rect.left;
-          y = rect.bottom;
+        if (selectedText) {
+          // 選択テキストがある場合、最初のプロンプトを使用してAIを開く
+          var promptConfig = RS.settings.prompts[0];
+          var prompt = RS.generatePrompt(selectedText, promptConfig.template);
+          RS.openGenAi(prompt, RS.settings.launchGenAi);
+          RS.showNotification('AIポップアップウィンドウを開いています...');
         } else {
-          // 選択テキストがない場合は画面中央に表示
-          x = window.innerWidth / 2 - 200; // テキストエリアの幅の半分（400px / 2）
-          y = window.innerHeight / 2 - 150; // テキストエリアの高さの半分（300px / 2）
+          // 選択テキストがない場合は、空のプロンプトでAIを開く
+          RS.openGenAi('', RS.settings.launchGenAi);
+          RS.showNotification('AIポップアップウィンドウを開いています...');
         }
 
-        RS.FloatingTextArea.create(
-          selectedText || '', // 選択テキストがない場合は空文字列
-          x,
-          y
-        );
         RS.FloatingButton.hide();
         return;
       }
@@ -192,13 +187,15 @@
   // メッセージリスナー（background.jsからの回答を受信）
   // ==========================================
 
-  chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-    if (message.action === 'displayAiResponse') {
-      // AIの回答を表示
-      RS.FloatingTextArea.displayResponse(message.response, message.isComplete);
-      sendResponse({ success: true });
-    }
-  });
+  // AIポップアップウィンドウを使用するため、フローティングテキストエリアへの
+  // 回答表示は不要になりました
+  // chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+  //   if (message.action === 'displayAiResponse') {
+  //     // AIの回答を表示
+  //     RS.FloatingTextArea.displayResponse(message.response, message.isComplete);
+  //     sendResponse({ success: true });
+  //   }
+  // });
 
   // ==========================================
   // 初期化

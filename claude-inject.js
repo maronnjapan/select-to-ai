@@ -190,7 +190,9 @@
     return null;
   }
 
-  // 回答を監視して送信元タブに送る（APIインターセプト方式）
+  // AIポップアップウィンドウを使用するため、回答監視は不要になりました
+  // 将来の参考のために残しています
+  /*
   function monitorResponse(originTabId) {
     let fullResponse = '';
     let timeoutId = null;
@@ -373,6 +375,7 @@
       }
     }, 30000);
   }
+  */
 
   // メイン処理
   async function processPrompt() {
@@ -414,12 +417,12 @@
             if (submitButton) {
               submitMessage(submitButton);
 
-              // 回答の監視を開始
-              if (originTabId) {
-                setTimeout(() => {
-                  monitorResponse(originTabId);
-                }, 3000); // 送信後3秒待ってから監視開始（バックグラウンドタブでも動作するように）
-              }
+              // AIポップアップウィンドウを使用するため、回答の監視は不要になりました
+              // if (originTabId) {
+              //   setTimeout(() => {
+              //     monitorResponse(originTabId);
+              //   }, 3000);
+              // }
             }
           }, 500);
         }
@@ -493,12 +496,12 @@
       if (submitButton) {
         submitMessage(submitButton);
 
-        // 回答の監視を開始
-        if (originTabId) {
-          setTimeout(() => {
-            monitorResponse(originTabId);
-          }, 3000); // 送信後3秒待ってから監視開始（バックグラウンドタブでも動作するように）
-        }
+        // AIポップアップウィンドウを使用するため、回答の監視は不要になりました
+        // if (originTabId) {
+        //   setTimeout(() => {
+        //     monitorResponse(originTabId);
+        //   }, 3000);
+        // }
       } else {
         console.log('Reading Support: 送信ボタンが見つかりません');
       }
