@@ -347,19 +347,79 @@
       escaped = escaped.replace(/^## (.+)$/gm, '<h2>$1</h2>');
       escaped = escaped.replace(/^# (.+)$/gm, '<h1>$1</h1>');
 
-      // リスト (- item or * item)
+      // テーブルとリストを処理
       var lines = escaped.split('\n');
       var inList = false;
+      var inTable = false;
       var result = [];
+
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
+        var trimmedLine = line.trim();
+
+        // テーブルの開始を検出（| で始まり | で終わる行）
+        if (!inTable && trimmedLine.match(/^\|(.+)\|$/)) {
+          // 次の行がセパレーター行かチェック
+          if (i + 1 < lines.length) {
+            var nextLine = lines[i + 1].trim();
+            if (nextLine.match(/^\|[\s\-:]+\|$/)) {
+              // テーブル開始
+              inTable = true;
+              if (inList) {
+                result.push('</ul>');
+                inList = false;
+              }
+              result.push('<table>');
+              result.push('<thead>');
+              result.push('<tr>');
+
+              // ヘッダー行を処理
+              var headers = trimmedLine.split('|').slice(1, -1);
+              for (var h = 0; h < headers.length; h++) {
+                result.push('<th>' + headers[h].trim() + '</th>');
+              }
+              result.push('</tr>');
+              result.push('</thead>');
+              result.push('<tbody>');
+
+              // セパレーター行をスキップ
+              i++;
+              continue;
+            }
+          }
+        }
+
+        // テーブル内の行を処理
+        if (inTable && trimmedLine.match(/^\|(.+)\|$/)) {
+          result.push('<tr>');
+          var cells = trimmedLine.split('|').slice(1, -1);
+          for (var c = 0; c < cells.length; c++) {
+            result.push('<td>' + cells[c].trim() + '</td>');
+          }
+          result.push('</tr>');
+          continue;
+        }
+
+        // テーブルの終了
+        if (inTable && !trimmedLine.match(/^\|(.+)\|$/)) {
+          result.push('</tbody>');
+          result.push('</table>');
+          inTable = false;
+        }
+
+        // リスト処理 (- item or * item)
         if (/^[\-\*] (.+)$/.test(line)) {
+          if (inTable) {
+            result.push('</tbody>');
+            result.push('</table>');
+            inTable = false;
+          }
           if (!inList) {
             result.push('<ul>');
             inList = true;
           }
           result.push('<li>' + line.replace(/^[\-\*] /, '') + '</li>');
-        } else {
+        } else if (!inTable) {
           if (inList) {
             result.push('</ul>');
             inList = false;
@@ -367,8 +427,14 @@
           result.push(line);
         }
       }
+
+      // 未閉のタグを閉じる
       if (inList) {
         result.push('</ul>');
+      }
+      if (inTable) {
+        result.push('</tbody>');
+        result.push('</table>');
       }
 
       // 改行を<br>に変換

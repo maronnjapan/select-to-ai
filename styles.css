@@ -324,6 +324,29 @@
   margin: 4px 0 !important;
 }
 
+.rs-chat-content table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 8px 0 !important;
+  font-size: 13px !important;
+}
+
+.rs-chat-content th,
+.rs-chat-content td {
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+  padding: 8px 12px !important;
+  text-align: left !important;
+}
+
+.rs-chat-content th {
+  background: rgba(0, 0, 0, 0.1) !important;
+  font-weight: 600 !important;
+}
+
+.rs-chat-content tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
 .rs-chat-message-user .rs-chat-content {
   background: #d97706 !important;
   color: #ffffff !important;
@@ -479,5 +502,18 @@
 
   .rs-chat-content a:hover {
     color: #93c5fd !important;
+  }
+
+  .rs-chat-content th,
+  .rs-chat-content td {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  .rs-chat-content th {
+    background: rgba(255, 255, 255, 0.15) !important;
+  }
+
+  .rs-chat-content tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.05) !important;
   }
 }
