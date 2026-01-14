@@ -149,7 +149,8 @@
   display: flex !important;
   flex-direction: column !important;
   width: 450px !important;
-  max-height: 600px !important;
+  height: 80vh !important;
+  max-height: 800px !important;
   background: #ffffff !important;
   border: 1px solid #e0e0e0 !important;
   border-radius: 12px !important;
@@ -196,7 +197,7 @@
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
-  max-height: 350px !important;
+  min-height: 0 !important;
 }
 
 .rs-chat-messages {
@@ -241,9 +242,109 @@
   padding: 10px 14px !important;
   border-radius: 12px !important;
   font-size: 14px !important;
-  line-height: 1.5 !important;
+  line-height: 1.6 !important;
   word-wrap: break-word !important;
   white-space: pre-wrap !important;
+}
+
+/* Markdownスタイル */
+.rs-chat-content h1,
+.rs-chat-content h2,
+.rs-chat-content h3 {
+  margin: 16px 0 8px 0 !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+}
+
+.rs-chat-content h1 {
+  font-size: 20px !important;
+}
+
+.rs-chat-content h2 {
+  font-size: 18px !important;
+}
+
+.rs-chat-content h3 {
+  font-size: 16px !important;
+}
+
+.rs-chat-content h1:first-child,
+.rs-chat-content h2:first-child,
+.rs-chat-content h3:first-child {
+  margin-top: 0 !important;
+}
+
+.rs-chat-content code {
+  background: rgba(0, 0, 0, 0.1) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-family: 'Courier New', Courier, monospace !important;
+  font-size: 13px !important;
+}
+
+.rs-chat-content pre {
+  background: rgba(0, 0, 0, 0.1) !important;
+  padding: 12px !important;
+  border-radius: 6px !important;
+  overflow-x: auto !important;
+  margin: 8px 0 !important;
+}
+
+.rs-chat-content pre code {
+  background: none !important;
+  padding: 0 !important;
+  display: block !important;
+  white-space: pre !important;
+}
+
+.rs-chat-content strong {
+  font-weight: 600 !important;
+}
+
+.rs-chat-content em {
+  font-style: italic !important;
+}
+
+.rs-chat-content a {
+  color: #2563eb !important;
+  text-decoration: underline !important;
+}
+
+.rs-chat-content a:hover {
+  color: #1d4ed8 !important;
+}
+
+.rs-chat-content ul {
+  margin: 8px 0 !important;
+  padding-left: 24px !important;
+  list-style-type: disc !important;
+}
+
+.rs-chat-content li {
+  margin: 4px 0 !important;
+}
+
+.rs-chat-content table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 8px 0 !important;
+  font-size: 13px !important;
+}
+
+.rs-chat-content th,
+.rs-chat-content td {
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+  padding: 8px 12px !important;
+  text-align: left !important;
+}
+
+.rs-chat-content th {
+  background: rgba(0, 0, 0, 0.1) !important;
+  font-weight: 600 !important;
+}
+
+.rs-chat-content tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.05) !important;
 }
 
 .rs-chat-message-user .rs-chat-content {
@@ -384,5 +485,35 @@
 
   .rs-btn-secondary:hover {
     background: #505050 !important;
+  }
+
+  /* ダークモードのMarkdownスタイル */
+  .rs-chat-content code {
+    background: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .rs-chat-content pre {
+    background: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .rs-chat-content a {
+    color: #60a5fa !important;
+  }
+
+  .rs-chat-content a:hover {
+    color: #93c5fd !important;
+  }
+
+  .rs-chat-content th,
+  .rs-chat-content td {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  .rs-chat-content th {
+    background: rgba(255, 255, 255, 0.15) !important;
+  }
+
+  .rs-chat-content tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.05) !important;
   }
 }
