@@ -18,6 +18,7 @@
 
   var floatingTextArea = null;
   var conversationHistory = []; // 会話履歴を保存
+  var isNewChatSession = true; // 新規チャットセッションかどうか
 
   RS.FloatingTextArea = {
     /**
@@ -31,6 +32,9 @@
     create: function(selectedText, x, y) {
       // 既存のテキストエリアがあれば削除
       this.hide();
+
+      // 新規チャットセッションとして開始
+      isNewChatSession = true;
 
       var container = document.createElement('div');
       container.id = 'reading-support-floating-textarea';
@@ -83,6 +87,9 @@
         floatingTextArea.remove();
         floatingTextArea = null;
       }
+      // 会話履歴をクリアして次回は新規チャットセッションとする
+      conversationHistory = [];
+      isNewChatSession = true;
     },
 
     /**
@@ -185,11 +192,19 @@
       // ローディング表示
       this._addLoadingMessage();
 
-      // AIに送信（既存チャットを再利用し、タブをアクティブにしない）
+      // AIに送信
+      // 新規チャットセッションの場合は新しいチャットを開始、
+      // 同じセッション内の2回目以降は既存チャットに続けて送信
       RS.openGenAi(text, RS.settings.launchGenAi, {
-        reuseExistingChat: true,
+        reuseExistingChat: !isNewChatSession,
         activateTab: false
       });
+
+      // 最初のメッセージ送信後は既存チャットを再利用
+      if (isNewChatSession) {
+        isNewChatSession = false;
+      }
+
       RS.showNotification('AIに送信しています...');
     },
 
