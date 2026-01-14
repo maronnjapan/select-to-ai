@@ -25,8 +25,9 @@ async function handleOpenGenAi(prompt, launchGenAi, originTabId) {
 
     const url = launchGenAi === 'chatgpt' ? 'https://chatgpt.com/new' : 'https://claude.ai/new';
 
-    // 既存のGenAIタブを検索
-    const tabs = await chrome.tabs.query({ url });
+    // 既存のGenAIタブを検索（ワイルドカードパターンを使用してすべての会話を含める）
+    const urlPattern = launchGenAi === 'chatgpt' ? 'https://chatgpt.com/*' : 'https://claude.ai/*';
+    const tabs = await chrome.tabs.query({ url: urlPattern });
 
     if (tabs.length > 0) {
       // 既存タブを再利用
