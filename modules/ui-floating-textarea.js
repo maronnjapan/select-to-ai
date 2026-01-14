@@ -57,7 +57,7 @@
 
       document.body.appendChild(container);
 
-      // 位置調整
+      // 位置調整（左端に表示）
       this._position(container, x, y);
 
       // テキストエリアにフォーカス
@@ -67,6 +67,9 @@
 
       // イベントリスナーを設定
       this._setupEventListeners(container);
+
+      // ドラッグ機能を設定
+      this._setupDragging(container);
 
       floatingTextArea = container;
       return container;
@@ -83,28 +86,24 @@
     },
 
     /**
-     * テキストエリアの位置を調整
+     * テキストエリアの位置を調整（左端に表示）
      * @private
      */
     _position: function(container, x, y) {
       var padding = 20;
-      var width = container.offsetWidth || 400;
       var height = container.offsetHeight || 300;
 
-      var posX = x;
+      // 左端に固定表示
+      var posX = padding;
       var posY = y + 10; // デフォルトは選択範囲の少し下
 
-      var maxX = window.innerWidth - padding - width;
-      if (maxX < padding) {
-        maxX = padding;
-      }
-      if (posX > maxX) {
-        posX = maxX;
-      }
-      if (posX < padding) {
-        posX = padding;
+      // 画面の高さに収まるように調整
+      var maxHeight = window.innerHeight - padding * 2;
+      if (height > maxHeight) {
+        container.style.maxHeight = maxHeight + 'px';
       }
 
+      // Y座標の調整
       if (posY + height > window.innerHeight - padding) {
         posY = y - height - 10; // 下に入らなければ上に配置
       }
@@ -210,7 +209,13 @@
 
       var content = document.createElement('div');
       content.className = 'rs-chat-content';
-      content.textContent = text;
+
+      // AIのメッセージの場合はMarkdownとして表示
+      if (sender === 'ai') {
+        content.innerHTML = this._renderMarkdown(text);
+      } else {
+        content.textContent = text;
+      }
 
       messageDiv.appendChild(avatar);
       messageDiv.appendChild(content);
@@ -276,7 +281,7 @@
         // 既存のメッセージを更新（ストリーミング）
         var content = lastMessage.querySelector('.rs-chat-content');
         if (content) {
-          content.textContent = response;
+          content.innerHTML = this._renderMarkdown(response);
         }
       } else {
         // 新しいメッセージを追加
@@ -303,6 +308,141 @@
           messagesContainer.innerHTML = '';
         }
       }
+    },
+
+    /**
+     * Markdownをレンダリング
+     * @private
+     */
+    _renderMarkdown: function(text) {
+      if (!text) return '';
+
+      // HTMLエスケープ
+      var escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      // コードブロック (```code```)
+      escaped = escaped.replace(/```([\s\S]*?)```/g, function(match, code) {
+        return '<pre><code>' + code.trim() + '</code></pre>';
+      });
+
+      // インラインコード (`code`)
+      escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // 太字 (**text** or __text__)
+      escaped = escaped.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+      escaped = escaped.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+
+      // イタリック (*text* or _text_)
+      escaped = escaped.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+      escaped = escaped.replace(/_([^_]+)_/g, '<em>$1</em>');
+
+      // リンク ([text](url))
+      escaped = escaped.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+      // 見出し (# Heading)
+      escaped = escaped.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      escaped = escaped.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+      escaped = escaped.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+      // リスト (- item or * item)
+      var lines = escaped.split('\n');
+      var inList = false;
+      var result = [];
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (/^[\-\*] (.+)$/.test(line)) {
+          if (!inList) {
+            result.push('<ul>');
+            inList = true;
+          }
+          result.push('<li>' + line.replace(/^[\-\*] /, '') + '</li>');
+        } else {
+          if (inList) {
+            result.push('</ul>');
+            inList = false;
+          }
+          result.push(line);
+        }
+      }
+      if (inList) {
+        result.push('</ul>');
+      }
+
+      // 改行を<br>に変換
+      var html = result.join('\n').replace(/\n/g, '<br>');
+
+      return html;
+    },
+
+    /**
+     * ドラッグ機能を設定
+     * @private
+     */
+    _setupDragging: function(container) {
+      var header = container.querySelector('.rs-textarea-header');
+      var isDragging = false;
+      var currentX;
+      var currentY;
+      var initialX;
+      var initialY;
+      var xOffset = 0;
+      var yOffset = 0;
+
+      header.style.cursor = 'move';
+
+      header.addEventListener('mousedown', function(e) {
+        // クローズボタンをクリックした場合はドラッグを開始しない
+        if (e.target.classList.contains('rs-textarea-close')) {
+          return;
+        }
+
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
+
+        if (e.target === header || e.target.classList.contains('rs-textarea-title')) {
+          isDragging = true;
+        }
+      });
+
+      document.addEventListener('mousemove', function(e) {
+        if (isDragging) {
+          e.preventDefault();
+
+          currentX = e.clientX - initialX;
+          currentY = e.clientY - initialY;
+
+          xOffset = currentX;
+          yOffset = currentY;
+
+          // 境界チェック
+          var padding = 20;
+          var rect = container.getBoundingClientRect();
+          var maxX = window.innerWidth - rect.width - padding;
+          var maxY = window.innerHeight - rect.height - padding;
+
+          var newX = parseInt(container.style.left) + currentX;
+          var newY = parseInt(container.style.top) + currentY;
+
+          newX = Math.max(padding, Math.min(newX, maxX));
+          newY = Math.max(padding, Math.min(newY, maxY));
+
+          container.style.left = newX + 'px';
+          container.style.top = newY + 'px';
+
+          // オフセットをリセット
+          initialX = e.clientX;
+          initialY = e.clientY;
+          xOffset = 0;
+          yOffset = 0;
+        }
+      });
+
+      document.addEventListener('mouseup', function() {
+        isDragging = false;
+      });
     }
   };
 })();
