@@ -19,6 +19,128 @@
   var floatingTextArea = null;
   var conversationHistory = []; // 会話履歴を保存
   var isNewChatSession = true; // 新規チャットセッションかどうか
+  var STORAGE_KEY = 'rs-floating-textarea-state'; // ストレージキー
+
+  /**
+   * 現在の状態をストレージに保存
+   * @private
+   */
+  function saveState() {
+    if (!floatingTextArea) {
+      // テキストエリアが存在しない場合は状態を削除
+      chrome.storage.local.remove(STORAGE_KEY);
+      return;
+    }
+
+    var textarea = floatingTextArea.querySelector('.rs-textarea-input');
+    var state = {
+      isVisible: true,
+      position: {
+        left: floatingTextArea.style.left,
+        top: floatingTextArea.style.top
+      },
+      inputValue: textarea ? textarea.value : '',
+      conversationHistory: conversationHistory,
+      isNewChatSession: isNewChatSession,
+      timestamp: Date.now()
+    };
+
+    chrome.storage.local.set({ [STORAGE_KEY]: state });
+  }
+
+  /**
+   * ストレージから状態を読み込んで復元
+   * @private
+   */
+  function restoreState() {
+    chrome.storage.local.get([STORAGE_KEY], function(result) {
+      var state = result[STORAGE_KEY];
+      if (!state || !state.isVisible) return;
+
+      // 既にテキストエリアが存在する場合は何もしない
+      if (floatingTextArea) return;
+
+      // 状態を復元
+      conversationHistory = state.conversationHistory || [];
+      isNewChatSession = state.isNewChatSession !== undefined ? state.isNewChatSession : true;
+
+      // テキストエリアを再作成
+      var container = document.createElement('div');
+      container.id = 'reading-support-floating-textarea';
+
+      container.innerHTML = '\
+        <div class="rs-textarea-header">\
+          <span class="rs-textarea-title">AI Chat</span>\
+          <button class="rs-textarea-close" title="閉じる">&times;</button>\
+        </div>\
+        <div class="rs-chat-container">\
+          <div class="rs-chat-messages"></div>\
+        </div>\
+        <div class="rs-chat-input-container">\
+          <textarea class="rs-textarea-input" placeholder="メッセージを入力...">' + RS.escapeHtml(state.inputValue || '') + '</textarea>\
+          <div class="rs-textarea-footer">\
+            <span class="rs-textarea-hint">Ctrl+Enterで送信</span>\
+            <div class="rs-textarea-actions">\
+              <button class="rs-btn rs-btn-secondary rs-textarea-cancel">キャンセル</button>\
+              <button class="rs-btn rs-btn-genai rs-textarea-submit">送信</button>\
+            </div>\
+          </div>\
+        </div>\
+      ';
+
+      document.body.appendChild(container);
+
+      // 保存された位置を復元
+      if (state.position) {
+        container.style.left = state.position.left;
+        container.style.top = state.position.top;
+      }
+
+      // 会話履歴を復元
+      var messagesContainer = container.querySelector('.rs-chat-messages');
+      if (messagesContainer && conversationHistory.length > 0) {
+        for (var i = 0; i < conversationHistory.length; i++) {
+          var msg = conversationHistory[i];
+          var messageDiv = document.createElement('div');
+          messageDiv.className = 'rs-chat-message rs-chat-message-' + msg.sender;
+
+          var avatar = document.createElement('div');
+          avatar.className = 'rs-chat-avatar';
+          avatar.textContent = msg.sender === 'user' ? 'U' : 'AI';
+
+          var content = document.createElement('div');
+          content.className = 'rs-chat-content';
+
+          if (msg.sender === 'ai') {
+            content.innerHTML = RS.FloatingTextArea._renderMarkdown(msg.text);
+          } else {
+            content.textContent = msg.text;
+          }
+
+          messageDiv.appendChild(avatar);
+          messageDiv.appendChild(content);
+          messagesContainer.appendChild(messageDiv);
+        }
+
+        // 最新メッセージまでスクロール
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      // テキストエリアにフォーカス
+      var textarea = container.querySelector('.rs-textarea-input');
+      if (textarea && state.inputValue) {
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+
+      // イベントリスナーを設定
+      RS.FloatingTextArea._setupEventListeners(container);
+
+      // ドラッグ機能を設定
+      RS.FloatingTextArea._setupDragging(container);
+
+      floatingTextArea = container;
+    });
+  }
 
   RS.FloatingTextArea = {
     /**
@@ -76,6 +198,10 @@
       this._setupDragging(container);
 
       floatingTextArea = container;
+
+      // 状態を保存
+      saveState();
+
       return container;
     },
 
@@ -90,6 +216,9 @@
       // 会話履歴をクリアして次回は新規チャットセッションとする
       conversationHistory = [];
       isNewChatSession = true;
+
+      // ストレージから状態を削除
+      chrome.storage.local.remove(STORAGE_KEY);
     },
 
     /**
@@ -165,6 +294,11 @@
         }
       });
 
+      // テキストエリアの入力内容が変更されたら状態を保存
+      textarea.addEventListener('input', function() {
+        saveState();
+      });
+
       // イベントの伝播を止める（選択操作と干渉しないように）
       container.addEventListener('mousedown', function(e) {
         e.stopPropagation();
@@ -206,6 +340,9 @@
       }
 
       RS.showNotification('AIに送信しています...');
+
+      // 状態を保存
+      saveState();
     },
 
     /**
@@ -244,6 +381,9 @@
 
       // 会話履歴に追加
       conversationHistory.push({ sender: sender, text: text });
+
+      // 状態を保存
+      saveState();
     },
 
     /**
@@ -301,6 +441,13 @@
         if (content) {
           content.innerHTML = this._renderMarkdown(response);
         }
+        // 会話履歴の最後のAIメッセージを更新
+        for (var i = conversationHistory.length - 1; i >= 0; i--) {
+          if (conversationHistory[i].sender === 'ai') {
+            conversationHistory[i].text = response;
+            break;
+          }
+        }
       } else {
         // 新しいメッセージを追加
         this._addMessage(response, 'ai');
@@ -312,6 +459,9 @@
       if (isComplete) {
         RS.showNotification('AIからの回答を受信しました');
       }
+
+      // 状態を保存
+      saveState();
     },
 
     /**
@@ -525,8 +675,20 @@
       });
 
       document.addEventListener('mouseup', function() {
-        isDragging = false;
+        if (isDragging) {
+          isDragging = false;
+          // ドラッグ終了時に位置を保存
+          saveState();
+        }
       });
     }
   };
+
+  // ページロード時に状態を復元
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', restoreState);
+  } else {
+    // すでにロード済みの場合は即座に実行
+    restoreState();
+  }
 })();
