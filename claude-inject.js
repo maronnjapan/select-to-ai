@@ -15,15 +15,34 @@
 
   // 入力欄を探す
   function findInputElement() {
-    // Claude.aiの入力欄セレクタ（複数パターンを試す）
-    const selectors = [
-      'div[contenteditable="true"]',
-      'textarea[placeholder]',
-      'div.ProseMirror',
-      '[data-placeholder]',
-      'fieldset textarea',
-      'div[role="textbox"]'
-    ];
+    // 現在のURLでどちらのサービスか判定
+    const isChatGPT = window.location.hostname.includes('chatgpt.com');
+    const isClaude = window.location.hostname.includes('claude.ai');
+
+    let selectors = [];
+
+    if (isChatGPT) {
+      // ChatGPT用のセレクタ（優先順位順）
+      selectors = [
+        'textarea[id="prompt-textarea"]',
+        'div[contenteditable="true"][data-id]',
+        'textarea[placeholder*="Message"]',
+        'textarea[data-id]',
+        'div[contenteditable="true"]',
+        'textarea[placeholder]',
+        'div[role="textbox"]'
+      ];
+    } else if (isClaude) {
+      // Claude用のセレクタ
+      selectors = [
+        'div[contenteditable="true"]',
+        'textarea[placeholder]',
+        'div.ProseMirror',
+        '[data-placeholder]',
+        'fieldset textarea',
+        'div[role="textbox"]'
+      ];
+    }
 
     for (const selector of selectors) {
       const element = document.querySelector(selector);
@@ -36,15 +55,33 @@
 
   // 送信ボタンを探す
   function findSubmitButton() {
-    // Claude.aiの送信ボタンセレクタ（複数パターンを試す）
-    const selectors = [
-      'button[aria-label*="Send"]',
-      'button[aria-label*="送信"]',
-      'button[type="submit"]',
-      'button:has(svg[data-icon="arrow-up"])',
-      'button:has(svg[data-icon="send"])',
-      'form button:last-of-type'
-    ];
+    // 現在のURLでどちらのサービスか判定
+    const isChatGPT = window.location.hostname.includes('chatgpt.com');
+    const isClaude = window.location.hostname.includes('claude.ai');
+
+    let selectors = [];
+
+    if (isChatGPT) {
+      // ChatGPT用のセレクタ（優先順位順）
+      selectors = [
+        'button[data-testid="send-button"]',
+        'button[data-testid="fruitjuice-send-button"]',
+        'button[aria-label*="Send"]',
+        'button[aria-label*="送信"]',
+        'button[type="submit"]',
+        'form button:last-of-type'
+      ];
+    } else if (isClaude) {
+      // Claude用のセレクタ
+      selectors = [
+        'button[aria-label*="Send"]',
+        'button[aria-label*="送信"]',
+        'button[type="submit"]',
+        'button:has(svg[data-icon="arrow-up"])',
+        'button:has(svg[data-icon="send"])',
+        'form button:last-of-type'
+      ];
+    }
 
     for (const selector of selectors) {
       try {
@@ -108,13 +145,29 @@
 
   // AIの回答エリアを探す
   function findResponseElement() {
-    // Claude.aiの回答エリアセレクタ（複数パターンを試す）
-    const selectors = [
-      'div[data-testid="conversation-turn"]',
-      'div[data-test="conversation-turn"]',
-      'div.font-claude-message',
-      'div[class*="message"]'
-    ];
+    // 現在のURLでどちらのサービスか判定
+    const isChatGPT = window.location.hostname.includes('chatgpt.com');
+    const isClaude = window.location.hostname.includes('claude.ai');
+
+    let selectors = [];
+
+    if (isChatGPT) {
+      // ChatGPT用のセレクタ
+      selectors = [
+        'div[data-message-author-role="assistant"]',
+        'div[data-message-role="assistant"]',
+        'article[data-testid*="conversation"]',
+        'div[class*="agent-turn"]'
+      ];
+    } else if (isClaude) {
+      // Claude用のセレクタ
+      selectors = [
+        'div[data-testid="conversation-turn"]',
+        'div[data-test="conversation-turn"]',
+        'div.font-claude-message',
+        'div[class*="message"]'
+      ];
+    }
 
     for (const selector of selectors) {
       const elements = document.querySelectorAll(selector);
@@ -143,13 +196,27 @@
     let observer = null;
 
     const checkAndSendResponse = () => {
-      // 最新の回答エリアを取得
-      const responseElements = document.querySelectorAll('div[data-testid="conversation-turn"]');
-      if (responseElements.length === 0) return;
+      // 現在のURLでどちらのサービスか判定
+      const isChatGPT = window.location.hostname.includes('chatgpt.com');
+      const isClaude = window.location.hostname.includes('claude.ai');
 
-      // 最後の回答（最新のAIの回答）を取得
-      const lastResponse = responseElements[responseElements.length - 1];
-      const responseText = lastResponse.textContent.trim();
+      let responseText = '';
+
+      if (isChatGPT) {
+        // ChatGPT用のセレクタ
+        const responseElements = document.querySelectorAll('div[data-message-author-role="assistant"]');
+        if (responseElements.length > 0) {
+          const lastResponse = responseElements[responseElements.length - 1];
+          responseText = lastResponse.textContent.trim();
+        }
+      } else if (isClaude) {
+        // Claude用のセレクタ
+        const responseElements = document.querySelectorAll('div[data-testid="conversation-turn"]');
+        if (responseElements.length > 0) {
+          const lastResponse = responseElements[responseElements.length - 1];
+          responseText = lastResponse.textContent.trim();
+        }
+      }
 
       // 前回送信したテキストと異なる場合のみ送信（ストリーミング対応）
       if (responseText && responseText !== lastSentText && responseText.length > 0) {
