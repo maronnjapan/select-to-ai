@@ -189,6 +189,18 @@
   document.addEventListener('keydown', handleKeydown);
 
   // ==========================================
+  // メッセージリスナー（background.jsからの回答を受信）
+  // ==========================================
+
+  chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+    if (message.action === 'displayAiResponse') {
+      // AIの回答を表示
+      RS.FloatingTextArea.displayResponse(message.response, message.isComplete);
+      sendResponse({ success: true });
+    }
+  });
+
+  // ==========================================
   // 初期化
   // ==========================================
 
