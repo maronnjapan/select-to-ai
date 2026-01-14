@@ -69,14 +69,24 @@ async function handleOpenGenAi(prompt, launchGenAi, originTabId, reuseExistingCh
         await chrome.windows.update(genAiTab.windowId, { focused: true });
       }
 
+      // 既存ウィンドウも常に最前面に設定
+      await chrome.windows.update(genAiTab.windowId, {
+        focused: true,
+        drawAttention: true
+      });
+
       return { success: true, reused: true };
     } else {
-      // 新しいウィンドウで開く
+      // 新しいウィンドウで開く（常に最前面に表示）
       await chrome.windows.create({
         url,
         type: 'popup',
-        width: 600,
-        height: 700
+        width: 400,
+        height: 700,
+        left: 20,
+        top: 100,
+        alwaysOnTop: true,  // 常に最前面に表示
+        focused: true
       });
 
       return { success: true, reused: false };
