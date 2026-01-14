@@ -190,141 +190,183 @@
     return null;
   }
 
-  // 回答を監視して送信元タブに送る
+  // 回答を監視して送信元タブに送る（APIインターセプト方式）
   function monitorResponse(originTabId) {
-    let lastSentText = '';
-    let observer = null;
-    let initialMessageCount = 0;
-    let detectedPatternIndex = -1;
+    let fullResponse = '';
+    let timeoutId = null;
 
     // 現在のURLでどちらのサービスか判定
     const isChatGPT = window.location.hostname.includes('chatgpt.com');
     const isClaude = window.location.hostname.includes('claude.ai');
 
-    // 監視開始時に現在のメッセージ数を記録
-    // この関数は送信後3秒後に呼ばれるが、その時点では既にAI回答が始まっている可能性がある
-    // なので、1回だけ初回のメッセージをキャプチャするために、遅延初期化する
-    let isFirstCheck = true;
+    // fetchのインターセプト
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+      const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+      const response = await originalFetch.apply(this, args);
 
-    const patterns = isClaude ? [
-      'div.font-claude-message',
-      'div[data-testid*="message"]',
-      'div[class*="font-"][class*="message"]'
-    ] : [];
+      // ClaudeのAPIレスポンスをキャッチ
+      if (isClaude && url.includes('/completion')) {
+        const clonedResponse = response.clone();
 
-    const checkAndSendResponse = () => {
-      let responseText = '';
+        try {
+          const reader = clonedResponse.body.getReader();
+          const decoder = new TextDecoder();
 
-      if (isChatGPT) {
-        // ChatGPT用のセレクタ
-        const responseElements = document.querySelectorAll('div[data-message-author-role="assistant"]');
+          const processStream = async () => {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
 
-        // 初回チェック時に現在のメッセージ数を記録
-        if (isFirstCheck) {
-          initialMessageCount = responseElements.length;
-          isFirstCheck = false;
-          return; // 初回は記録のみ
-        }
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\n');
 
-        // 新しいメッセージが追加されているかチェック
-        if (responseElements.length > initialMessageCount) {
-          const newMessageElement = responseElements[responseElements.length - 1];
-          responseText = newMessageElement.textContent.trim();
-        }
-      } else if (isClaude) {
-        // Claude用のセレクタ - 複数のパターンを試す
-        for (let patternIdx = 0; patternIdx < patterns.length; patternIdx++) {
-          const pattern = patterns[patternIdx];
-          const elements = document.querySelectorAll(pattern);
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const jsonStr = line.substring(6);
+                    if (jsonStr.trim() === '[DONE]') continue;
 
-          // パターンが見つかった場合、そのパターンを記憶
-          if (elements.length > 0 && detectedPatternIndex === -1) {
-            detectedPatternIndex = patternIdx;
-          }
+                    const data = JSON.parse(jsonStr);
 
-          // 検出済みのパターン以外はスキップ（一貫性のため）
-          if (detectedPatternIndex !== -1 && patternIdx !== detectedPatternIndex) {
-            continue;
-          }
+                    // Claudeのレスポンス形式に応じて処理
+                    if (data.completion) {
+                      fullResponse = data.completion;
+                    } else if (data.delta) {
+                      fullResponse += data.delta;
+                    } else if (data.message && data.message.content) {
+                      // 新しいAPI形式
+                      if (Array.isArray(data.message.content)) {
+                        for (const content of data.message.content) {
+                          if (content.type === 'text' && content.text) {
+                            fullResponse = content.text;
+                          }
+                        }
+                      }
+                    }
 
-          // 初回チェック時に現在のメッセージ数を記録
-          if (isFirstCheck) {
-            initialMessageCount = elements.length;
-            isFirstCheck = false;
-            return; // 初回は記録のみ
-          }
+                    // 回答を送信
+                    if (fullResponse && originTabId) {
+                      chrome.runtime.sendMessage({
+                        action: 'aiResponse',
+                        response: fullResponse,
+                        originTabId: originTabId,
+                        isComplete: false
+                      });
 
-          // 新しいメッセージが追加されているかチェック
-          if (elements.length > initialMessageCount) {
-            // 新しく追加されたメッセージを順番にチェック
-            for (let i = initialMessageCount; i < elements.length; i++) {
-              const element = elements[i];
-
-              // 入力欄を含む要素はユーザーメッセージなので除外
-              if (element.querySelector('textarea') || element.querySelector('input')) {
-                continue;
-              }
-
-              // メッセージは通常交互に表示される（ユーザー、AI、ユーザー、AI...）
-              // 初回のユーザーメッセージはインデックス0、AIはインデックス1...
-              // ただし、iが奇数の場合がAI回答の可能性が高い
-              // しかし、これは仮定なので、入力欄がないことで判定する
-              const text = element.textContent.trim();
-              if (text) {
-                responseText = text;
-                break;
+                      // タイムアウトをリセット
+                      if (timeoutId) clearTimeout(timeoutId);
+                      timeoutId = setTimeout(() => {
+                        // 完了フラグを送信
+                        chrome.runtime.sendMessage({
+                          action: 'aiResponse',
+                          response: fullResponse,
+                          originTabId: originTabId,
+                          isComplete: true
+                        });
+                      }, 2000);
+                    }
+                  } catch (e) {
+                    // JSONパースエラーは無視
+                  }
+                }
               }
             }
+          };
 
-            if (responseText) {
-              break;
-            }
-          }
+          processStream().catch(console.error);
+        } catch (e) {
+          console.error('Reading Support: ストリーム処理エラー', e);
         }
       }
 
-      // 前回送信したテキストと異なる場合のみ送信（ストリーミング対応）
-      if (responseText && responseText !== lastSentText && responseText.length > 0) {
-        lastSentText = responseText;
+      // ChatGPTのAPIレスポンスをキャッチ
+      if (isChatGPT && (url.includes('/conversation') || url.includes('/backend-api/conversation'))) {
+        const clonedResponse = response.clone();
 
-        // background.jsに回答を送信
-        chrome.runtime.sendMessage({
-          action: 'aiResponse',
-          response: responseText,
-          originTabId: originTabId,
-          isComplete: false // ストリーミング中
-        });
+        try {
+          const reader = clonedResponse.body.getReader();
+          const decoder = new TextDecoder();
+
+          const processStream = async () => {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\n');
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const jsonStr = line.substring(6).trim();
+                    if (jsonStr === '[DONE]') continue;
+
+                    const data = JSON.parse(jsonStr);
+
+                    // ChatGPTのレスポンス形式に応じて処理
+                    if (data.message && data.message.content) {
+                      if (data.message.content.parts) {
+                        fullResponse = data.message.content.parts.join('');
+                      } else if (typeof data.message.content === 'string') {
+                        fullResponse = data.message.content;
+                      }
+                    } else if (data.choices && data.choices[0]) {
+                      const choice = data.choices[0];
+                      if (choice.delta && choice.delta.content) {
+                        fullResponse += choice.delta.content;
+                      } else if (choice.message && choice.message.content) {
+                        fullResponse = choice.message.content;
+                      }
+                    }
+
+                    // 回答を送信
+                    if (fullResponse && originTabId) {
+                      chrome.runtime.sendMessage({
+                        action: 'aiResponse',
+                        response: fullResponse,
+                        originTabId: originTabId,
+                        isComplete: false
+                      });
+
+                      // タイムアウトをリセット
+                      if (timeoutId) clearTimeout(timeoutId);
+                      timeoutId = setTimeout(() => {
+                        // 完了フラグを送信
+                        chrome.runtime.sendMessage({
+                          action: 'aiResponse',
+                          response: fullResponse,
+                          originTabId: originTabId,
+                          isComplete: true
+                        });
+                      }, 2000);
+                    }
+                  } catch (e) {
+                    // JSONパースエラーは無視
+                  }
+                }
+              }
+            }
+          };
+
+          processStream().catch(console.error);
+        } catch (e) {
+          console.error('Reading Support: ストリーム処理エラー', e);
+        }
       }
+
+      return response;
     };
 
-    // DOMの変更を監視
-    const targetNode = document.body;
-    observer = new MutationObserver((mutations) => {
-      // 回答エリアに変更があったかチェック
-      checkAndSendResponse();
-    });
-
-    observer.observe(targetNode, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    });
-
-    // 定期的にもチェック（念のため）
-    const intervalId = setInterval(checkAndSendResponse, 1000);
-
-    // 30秒後に監視を停止（タイムアウト）
+    // 30秒後にfetchのインターセプトを解除
     setTimeout(() => {
-      if (observer) {
-        observer.disconnect();
-      }
-      clearInterval(intervalId);
+      window.fetch = originalFetch;
 
       // 最終的な回答を送信（完了フラグを立てる）
-      if (lastSentText) {
+      if (fullResponse && originTabId) {
         chrome.runtime.sendMessage({
           action: 'aiResponse',
-          response: lastSentText,
+          response: fullResponse,
           originTabId: originTabId,
           isComplete: true
         });
