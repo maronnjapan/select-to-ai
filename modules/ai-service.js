@@ -23,12 +23,16 @@
    *
    * @param {string} prompt - 送信するプロンプト
    * @param {string} launchGenAi - 'claude' または 'chatgpt'
+   * @param {object} options - オプション
+   * @param {boolean} options.reuseExistingChat - 既存のチャットを再利用するか（デフォルト: false）
+   * @param {boolean} options.activateTab - タブをアクティブにするか（デフォルト: true）
    */
-  RS.openGenAi = function(prompt, launchGenAi) {
+  RS.openGenAi = function(prompt, launchGenAi, options) {
+    options = options || {};
     if (launchGenAi === 'claude') {
-      RS.openClaude(prompt);
+      RS.openClaude(prompt, options);
     } else if (launchGenAi === 'chatgpt') {
-      RS.openChatGPT(prompt);
+      RS.openChatGPT(prompt, options);
     }
   };
 
@@ -37,10 +41,20 @@
    * background scriptにメッセージを送信し、既存タブがあれば再利用
    *
    * @param {string} prompt - 送信するプロンプト
+   * @param {object} options - オプション
+   * @param {boolean} options.reuseExistingChat - 既存のチャットを再利用するか（デフォルト: false）
+   * @param {boolean} options.activateTab - タブをアクティブにするか（デフォルト: true）
    */
-  RS.openClaude = function(prompt) {
+  RS.openClaude = function(prompt, options) {
+    options = options || {};
     chrome.runtime.sendMessage(
-      { action: 'openGenAi', prompt: prompt, launchGenAi: 'claude' },
+      {
+        action: 'openGenAi',
+        prompt: prompt,
+        launchGenAi: 'claude',
+        reuseExistingChat: options.reuseExistingChat || false,
+        activateTab: options.activateTab !== false
+      },
       function(response) {
         if (response && response.success) {
           if (response.reused) {
@@ -67,10 +81,20 @@
    * background scriptにメッセージを送信し、既存タブがあれば再利用
    *
    * @param {string} prompt - 送信するプロンプト
+   * @param {object} options - オプション
+   * @param {boolean} options.reuseExistingChat - 既存のチャットを再利用するか（デフォルト: false）
+   * @param {boolean} options.activateTab - タブをアクティブにするか（デフォルト: true）
    */
-  RS.openChatGPT = function(prompt) {
+  RS.openChatGPT = function(prompt, options) {
+    options = options || {};
     chrome.runtime.sendMessage(
-      { action: 'openGenAi', prompt: prompt, launchGenAi: 'chatgpt' },
+      {
+        action: 'openGenAi',
+        prompt: prompt,
+        launchGenAi: 'chatgpt',
+        reuseExistingChat: options.reuseExistingChat || false,
+        activateTab: options.activateTab !== false
+      },
       function(response) {
         if (response && response.success) {
           if (response.reused) {
