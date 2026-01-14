@@ -328,6 +328,76 @@
     }
   }
 
+  // background.jsからのメッセージを受信
+  chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+    if (message.action === 'insertPrompt') {
+      // 既存のチャットにプロンプトを入力・送信
+      insertAndSubmitPrompt(message.prompt, message.originTabId);
+      sendResponse({ success: true });
+    }
+  });
+
+  /**
+   * プロンプトを入力して送信（既存チャットの続き用）
+   */
+  async function insertAndSubmitPrompt(prompt, originTabId) {
+    try {
+      const inputElement = findInputElement();
+
+      if (!inputElement) {
+        console.log('Reading Support: 入力欄が見つかりません。待機します...');
+        // 入力欄が見つかるまで待機
+        let waitTime = 0;
+        const waitForInput = setInterval(() => {
+          waitTime += CHECK_INTERVAL;
+
+          const input = findInputElement();
+          if (input) {
+            clearInterval(waitForInput);
+            performInputAndSubmit(input, prompt, originTabId);
+          }
+
+          if (waitTime >= MAX_WAIT_TIME) {
+            clearInterval(waitForInput);
+            console.log('Reading Support: 入力欄が見つかりませんでした（タイムアウト）');
+          }
+        }, CHECK_INTERVAL);
+        return;
+      }
+
+      // 入力欄が見つかった場合はすぐに実行
+      performInputAndSubmit(inputElement, prompt, originTabId);
+
+    } catch (error) {
+      console.error('Reading Support: プロンプト入力エラー', error);
+    }
+  }
+
+  /**
+   * 実際の入力と送信を実行
+   */
+  function performInputAndSubmit(inputElement, prompt, originTabId) {
+    // テキストを入力
+    inputText(inputElement, prompt);
+
+    // 送信ボタンが有効になるまで少し待つ
+    setTimeout(() => {
+      const submitButton = findSubmitButton();
+      if (submitButton) {
+        submitMessage(submitButton);
+
+        // 回答の監視を開始
+        if (originTabId) {
+          setTimeout(() => {
+            monitorResponse(originTabId);
+          }, 2000); // 送信後2秒待ってから監視開始
+        }
+      } else {
+        console.log('Reading Support: 送信ボタンが見つかりません');
+      }
+    }, 500);
+  }
+
   // ページ読み込み完了後に実行
   if (document.readyState === 'complete') {
     processPrompt();

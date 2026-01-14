@@ -47,6 +47,20 @@ async function handleOpenGenAi(prompt, launchGenAi, originTabId, reuseExistingCh
       // false の場合、新しいチャットを開始（/new に移動）
       if (!reuseExistingChat) {
         await chrome.tabs.update(genAiTab.id, { url });
+      } else {
+        // 既存チャットを再利用する場合、タブに直接メッセージを送信
+        // ページがリロードされないため、claude-inject.js に直接プロンプトを送る
+        try {
+          await chrome.tabs.sendMessage(genAiTab.id, {
+            action: 'insertPrompt',
+            prompt: prompt,
+            originTabId: originTabId
+          });
+        } catch (error) {
+          console.error('Reading Support: プロンプト送信に失敗しました', error);
+          // エラーが発生した場合でもストレージに保存されているので、
+          // タブのリロードや再訪問時に処理される
+        }
       }
 
       // activateTab が true の場合のみ、タブをアクティブにする
