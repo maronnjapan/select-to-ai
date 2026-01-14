@@ -12,11 +12,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // 非同期レスポンスを示す
   }
 
-  if (message.action === 'aiResponse') {
-    // AIタブからの回答を元のタブに転送
-    handleAiResponse(message.response, message.originTabId, message.isComplete);
-    return false;
-  }
+  // AIポップアップウィンドウを使用するため、AI回答の転送は不要になりました
+  // if (message.action === 'aiResponse') {
+  //   handleAiResponse(message.response, message.originTabId, message.isComplete);
+  //   return false;
+  // }
 });
 
 async function handleOpenGenAi(prompt, launchGenAi, originTabId, reuseExistingChat, activateTab) {
@@ -97,15 +97,16 @@ async function handleOpenGenAi(prompt, launchGenAi, originTabId, reuseExistingCh
   }
 }
 
-async function handleAiResponse(response, originTabId, isComplete) {
-  try {
-    // 元のタブに回答を送信
-    await chrome.tabs.sendMessage(originTabId, {
-      action: 'displayAiResponse',
-      response: response,
-      isComplete: isComplete
-    });
-  } catch (error) {
-    console.error('Reading Support: 回答の転送に失敗しました', error);
-  }
-}
+// AIポップアップウィンドウを使用するため、AI回答の転送は不要になりました
+// async function handleAiResponse(response, originTabId, isComplete) {
+//   try {
+//     // 元のタブに回答を送信
+//     await chrome.tabs.sendMessage(originTabId, {
+//       action: 'displayAiResponse',
+//       response: response,
+//       isComplete: isComplete
+//     });
+//   } catch (error) {
+//     console.error('Reading Support: 回答の転送に失敗しました', error);
+//   }
+// }
