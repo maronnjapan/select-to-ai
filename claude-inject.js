@@ -203,55 +203,81 @@
     if (isChatGPT) {
       initialMessageCount = document.querySelectorAll('div[data-message-author-role="assistant"]').length;
     } else if (isClaude) {
-      // Claudeの場合、AI回答のみをカウント（ユーザーメッセージを除外）
-      const allMessages = document.querySelectorAll('div[class*="font-"]');
-      initialMessageCount = Array.from(allMessages).filter(el => {
-        // AI回答の特徴で判定（具体的なクラスやデータ属性で判別）
-        return el.textContent.length > 100; // 仮の判定：長いテキストはAI回答の可能性が高い
-      }).length;
+      // Claudeの場合、複数のセレクタパターンで試す
+      const patterns = [
+        'div.font-claude-message',
+        'div[data-testid*="message"]',
+        'div[class*="font-"][class*="message"]'
+      ];
+
+      for (const pattern of patterns) {
+        const elements = document.querySelectorAll(pattern);
+        if (elements.length > 0) {
+          // ユーザーメッセージを含む可能性があるので、偶数番目のみカウント（AI回答は通常偶数番目）
+          initialMessageCount = Math.floor(elements.length / 2);
+          break;
+        }
+      }
     }
 
     const checkAndSendResponse = () => {
       let responseText = '';
+      let newMessageElement = null;
 
       if (isChatGPT) {
         // ChatGPT用のセレクタ
         const responseElements = document.querySelectorAll('div[data-message-author-role="assistant"]');
         // 新しいメッセージが追加されているかチェック
         if (responseElements.length > initialMessageCount) {
-          const lastResponse = responseElements[responseElements.length - 1];
-          responseText = lastResponse.textContent.trim();
+          newMessageElement = responseElements[responseElements.length - 1];
+          responseText = newMessageElement.textContent.trim();
         }
       } else if (isClaude) {
         // Claude用のセレクタ - 複数のパターンを試す
-        let responseElements = [];
+        const patterns = [
+          'div.font-claude-message',
+          'div[data-testid*="message"]',
+          'div[class*="font-"][class*="message"]'
+        ];
 
-        // パターン1: font-claude-message クラス
-        responseElements = document.querySelectorAll('div.font-claude-message');
+        for (const pattern of patterns) {
+          const elements = document.querySelectorAll(pattern);
+          if (elements.length > initialMessageCount * 2) {
+            // メッセージは交互に表示される（ユーザー、AI、ユーザー、AI...）
+            // 最後の要素がAI回答の可能性が高い
+            newMessageElement = elements[elements.length - 1];
 
-        // パターン2: data-testid
-        if (responseElements.length === 0) {
-          responseElements = document.querySelectorAll('div[data-testid*="message"]');
+            // 入力欄を含む要素はユーザーメッセージなので除外
+            if (newMessageElement.querySelector('textarea') || newMessageElement.querySelector('input')) {
+              continue;
+            }
+
+            responseText = newMessageElement.textContent.trim();
+
+            // 見つかったらループを抜ける
+            if (responseText) {
+              break;
+            }
+          }
         }
 
-        // パターン3: 一般的なメッセージコンテナ
-        if (responseElements.length === 0) {
-          // AI回答っぽい要素を探す（長いテキストを含む div）
-          const allDivs = document.querySelectorAll('div[class*="font-"]');
-          responseElements = Array.from(allDivs).filter(el => {
-            return el.textContent.length > 50 && !el.querySelector('textarea');
-          });
-        }
-
-        // 新しいメッセージが追加されているかチェック
-        if (responseElements.length > initialMessageCount) {
-          const lastResponse = responseElements[responseElements.length - 1];
-          responseText = lastResponse.textContent.trim();
-
-          // ユーザーメッセージを除外（入力したプロンプトと同じでないことを確認）
-          // ※プロンプトの内容は取得できないため、長さで判定
-          if (responseText.length < 50) {
-            responseText = '';
+        // どのパターンでも見つからない場合、最後の手段として新しく追加された要素を探す
+        if (!responseText) {
+          const allDivs = Array.from(document.querySelectorAll('div'));
+          // 直近で追加された大きな要素を探す（textarea/inputを含まない）
+          for (let i = allDivs.length - 1; i >= 0; i--) {
+            const div = allDivs[i];
+            if (!div.querySelector('textarea') &&
+                !div.querySelector('input') &&
+                div.textContent.trim() &&
+                !div.contains(document.querySelector('textarea'))) {
+              const text = div.textContent.trim();
+              // 明らかに短すぎるもの（ボタンラベルなど）は除外
+              if (text && text.length > 10) {
+                responseText = text;
+                break;
+              }
+            }
           }
         }
       }
